@@ -1,0 +1,70 @@
+# Reproducible Research Course Project 1
+
+## Load Necessary Packages
+```{r}
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(markdown)
+library(lattice)
+```
+
+## Loading the Data
+```{r}
+data <- read.csv("activity.csv")
+```
+
+## Calculate Mean Number of Steps per Day
+```{r}
+steps <- tapply(data$steps, data$date, FUN=sum, na.rm=TRUE)
+qplot(steps, binwidth=500, xlab = "Steps per Day")
+mean(steps, na.rm=TRUE)
+median(steps, na.rm=TRUE)
+```
+
+## Find Average Daily Activity Pattern
+```{r}
+average <- aggregate(x=list(steps=data$steps), by=list(interval=data$interval), FUN=mean, na.rm=TRUE)
+ggplot(data=average, aes(x=interval, y=steps)) +
+    geom_line() +
+    xlab("Time of Day") +
+    ylab("Steps Taken")
+```
+
+## Impute Missing Values
+```{r}
+repl <- function(steps, interval) 
+{
+  replaced <- NA
+  if (!is.na(steps))
+    replaced <- c(steps)
+  else
+      replaced <- (average[average$interval==interval, "steps"])
+  return(replaced)
+}
+newdata <- data
+newdata$steps <- mapply(repl, newdata$steps, newdata$interval)
+stepss <- tapply(newdata$steps, newdata$date, FUN=sum)
+qplot(stepss, binwidth=500, xlab="Steps per Day")
+mean(stepss)
+median(stepss)
+```
+
+The mean and median are both higher after removing the NA values from the dataset.
+These values were being replaced with zeros, which artificially reduced the calculated mean and median values. 
+While we still do not know what these values, should be, we replaced these zeroes in the calculations, with the averages of the non-NA values, which is what caused these calculations to increase the second time around.
+
+```{r}
+partofweek <- function(d) 
+{
+    days <- weekday(d)
+    ifelse (days == "Saturday" | days == "Sunday", "weekend", "weekday")
+}
+
+dow <- sapply(newdata$date, partofweek)
+newdata$pow <- as.factor(dow)
+
+dataa <- aggregate(steps ~ pow+interval, data=newdata, FUN=mean)
+
+xyplot(steps ~ interval | factor(pow), layout = c(1, 2), xlab="Interval", ylab="Steps", type="l", lty=1, data = newdata)
+```
